@@ -1,0 +1,3 @@
+[submodule "ip_calc"]
+	path = ip_calc
+	url = git@github.com:sskaje/ip_calc.git
