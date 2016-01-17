@@ -5,17 +5,9 @@
  * @author sskaje http://sskaje.me/
  */
 
-
-
 copyright();
 
 if (!isset($argv[1])) {
-    usage();
-} else {
-    $as_set = $argv[1];
-}
-
-if (!preg_match('#^AS-[A-Z0-9\-]+$#', $as_set)) {
     usage();
 }
 
@@ -24,10 +16,20 @@ if (isset($argv[2]) && $argv[2] == '-d') {
 }
 
 $ips = [];
-debug_log("\e[33mQuery AS-SET: \e[32m{$as_set}\e[0m\n");
-query_as_set($as_set, $ips);
-ksort($ips['route']);
 
+$name = $argv[1];
+if (is_as_set($name)) {
+    debug_log("\e[33mQuery AS-SET: \e[32m{$name}\e[0m\n");
+    query_as_set($name, $ips);
+} else if (is_asn($name)) {
+    debug_log("\e[33mQuery AS-Number: \e[32m{$name}\e[0m\n");
+    query_asn($name, $ips);
+
+} else {
+    usage();
+}
+
+ksort($ips['route']);
 $route4 = array_keys($ips['route']);
 
 require(__DIR__ . '/ip_calc/ipcalc.class.php');
@@ -55,27 +57,42 @@ foreach ($s as $r) {
     }
 }
 
+function is_asn($name)
+{
+    return preg_match('#^AS\d+$#', $name);
+}
+
+function is_as_set($name)
+{
+    return preg_match('#^AS-[A-Z0-9\-]+$#', $name);
+}
+
 function query_as_set($as_set, &$ips=[])
 {
     $assets = query('-K -T as-set ' . $as_set);
 
     foreach ($assets['members'] as $asn) {
-        if (preg_match('#^AS\d+$#', $asn)) {
-            $r = query('-K -i origin ' . $asn);
-
-            if (isset($r['route'])) {
-                foreach ($r['route'] as $n) {
-                    $ips['route'][$n] = 1;
-                }
-            }
-
-            if (isset($r['route6'])) {
-                foreach ($r['route6'] as $n) {
-                    $ips['route6'][$n] = 1;
-                }
-            }
+        if (is_asn($asn)) {
+            query_asn($asn, $ips);
         } else {
             query_as_set($asn, $ips);
+        }
+    }
+}
+
+function query_asn($asn, &$ips=[])
+{
+    $r = query('-K -i origin ' . $asn);
+
+    if (isset($r['route'])) {
+        foreach ($r['route'] as $n) {
+            $ips['route'][$n] = 1;
+        }
+    }
+
+    if (isset($r['route6'])) {
+        foreach ($r['route6'] as $n) {
+            $ips['route6'][$n] = 1;
         }
     }
 }
@@ -132,10 +149,12 @@ function usage()
 
     echo <<<USAGE
 Usage:
-    php query-ips.php AS-SET-NAME [-d]
+    php query-ips.php AS-SET-NAME|AS-NUMBER [-d]
 
 Example:
     php query-ips.php AS-GOOGLE -d
+    php query-ips.php AS15169 -d
+
 
 USAGE;
     exit;
