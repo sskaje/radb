@@ -27,4 +27,19 @@ php query-ips.php -s AS-TWITTER -n AS15169 -d
 
 ```
 
+# Known AS-SET list
+
+* AS-HURRICANE
+* AS-GOOGLE
+* AS-TWITTER
+* AS-AMAZON
+* AS-FACEBOOK
+* AS-MICROSOFT
+* AS-APPLE
+* AS-LINODE
+* AS-DIGITALOCEAN
+* AS-AOL
+* AS-CN
+
+
 # EOF

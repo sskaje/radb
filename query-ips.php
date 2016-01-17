@@ -64,6 +64,11 @@ foreach ($query_asns as $asn) {
     Radb::query_asn($asn, $ips);
 }
 
+if (empty($ips['route'])) {
+    echo "NO IP Found\n";
+    exit;
+}
+
 ksort($ips['route']);
 $route4 = array_keys($ips['route']);
 
@@ -108,11 +113,13 @@ class Radb
     {
         $assets = self::query('-K -T as-set ' . $as_set);
 
-        foreach ($assets['members'] as $asn) {
-            if (self::is_asn($asn)) {
-                self::query_asn($asn, $ips);
-            } else {
-                self::query_as_set($asn, $ips);
+        if (isset($assets['members'])) {
+            foreach ($assets['members'] as $asn) {
+                if (self::is_asn($asn)) {
+                    self::query_asn($asn, $ips);
+                } else {
+                    self::query_as_set($asn, $ips);
+                }
             }
         }
     }
@@ -140,29 +147,46 @@ class Radb
         fwrite($socket, $cmd . "\n");
         $r = '';
         $ret = [];
+        $last_key = '';
         while (!feof($socket)) {
             $rl = fgets($socket);
             $r .= $rl;
-            if (!strpos($rl, ':')) {
-                if (trim($rl)) {
-                    # stderr
-                    debug_log("\e[31mError\e[0m: " . $cmd . ": " . $rl);
-                }
+            $rl = trim($rl);
+
+            if (empty($rl)) {
+                $last_key = '';
                 continue;
             }
-            list($key, $val) = explode(':', $rl, 2);
+
+            if ($rl[0] == '%') {
+                # stderr
+                debug_log("Error: {$cmd}: \e[31m{$rl}\e[0m");
+                continue;
+            }
+
+            if (strpos($rl, ':')) {
+                list($key, $val) = explode(':', $rl, 2);
+            } else {
+                $key = $last_key;
+                $val = $rl;
+            }
+
             $ret[$key][] = trim($val);
+            $last_key = $key;
         }
 
         fclose($socket);
 
         if (isset($ret['members'])) {
+            $new_members = [];
             foreach ($ret['members'] as $k=>$v) {
                 if (strpos($v, ',')) {
-                    unset($ret['members'][$k]);
-                    $ret['members'] = array_merge($ret['members'], preg_split('#[,\s]#', $v, -1, PREG_SPLIT_NO_EMPTY));
+                    $new_members = array_merge($new_members, preg_split('#[,\s]#', $v, -1, PREG_SPLIT_NO_EMPTY));
+                } else {
+                    $new_members[] = $v;
                 }
             }
+            $ret['members'] = array_unique($new_members);
         }
 
         return $ret;
