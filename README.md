@@ -6,18 +6,25 @@ Author: sskaje ([https://sskaje.me/](https://sskaje.me/))
 
 # Usage
 
+
 ```
-php query-ips.php AS-SET-NAME|AS-NUMBER [-d]
+php query-ips.php OPTIONS 
+OPTIONS:
+    -d          Turn on DEBUG. Messages are sent to STDERR.
+    -s NAME     Set AS-SET-NAME
+    -d NUMBER   Set AS-NUMBER
 ```
 
-**-d**: Turn on debug messages. Messages are sent to STDERR.
 
 
 # Examples
 
 ```
-php query-ips.php AS-GOOGLE -d
-php query-ips.php AS15169 -d
+php query-ips.php -s AS-GOOGLE -d 
+php query-ips.php -n AS15169   -d 
+php qury-ips.php -s AS-GOOGLE -s AS-TWITTER -d 
+php query-ips.php -s AS-TWITTER -n AS15169 -d 
+
 ```
 
 # EOF

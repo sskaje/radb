@@ -11,22 +11,57 @@ if (!isset($argv[1])) {
     usage();
 }
 
-if (isset($argv[2]) && $argv[2] == '-d') {
+$enable_debug = false;
+$query_asns = [];
+$query_as_sets = [];
+
+for ($i=1; isset($argv[$i]); $i++) {
+    if ($argv[$i] == '-d') {
+        $enable_debug = true;
+    } else if ($argv[$i] == '-h') {
+        usage();
+    } else if ($argv[$i] == '-s') {
+        if (!isset($argv[$i+1])) {
+            echo "Error: Missing AS-SET-NAME\n";
+            exit;
+        } else if (!Radb::is_as_set($argv[$i+1])) {
+            echo "Error: Invalid AS-SET-NAME\n";
+            exit;
+        } else {
+            $query_as_sets[] = $argv[$i+1];
+        }
+        ++$i;
+    } else if ($argv[$i] == '-n') {
+        if (!isset($argv[$i+1])) {
+            echo "Error: Missing AS-NUMBER\n";
+            exit;
+        } else if (!Radb::is_asn($argv[$i+1])) {
+            echo "Error: Invalid AS-NUMBER\n";
+            exit;
+        } else {
+            $query_asns[] = $argv[$i+1];
+        }
+        ++$i;
+    }
+}
+
+if (empty($query_asns) && empty($query_as_sets)) {
+    usage();
+}
+if ($enable_debug) {
     define('RADB_DEBUG', true);
 }
 
 $ips = [];
 
-$name = $argv[1];
-if (is_as_set($name)) {
-    debug_log("\e[33mQuery AS-SET: \e[32m{$name}\e[0m\n");
-    query_as_set($name, $ips);
-} else if (is_asn($name)) {
-    debug_log("\e[33mQuery AS-Number: \e[32m{$name}\e[0m\n");
-    query_asn($name, $ips);
+foreach ($query_as_sets as $as_set) {
+    debug_log("\e[33mQuery AS-SET: \e[32m{$as_set}\e[0m\n");
+    Radb::query_as_set($as_set, $ips);
+}
 
-} else {
-    usage();
+foreach ($query_asns as $asn) {
+    debug_log("\e[33mQuery AS-Number: \e[32m{$asn}\e[0m\n");
+    Radb::query_asn($asn, $ips);
 }
 
 ksort($ips['route']);
@@ -57,78 +92,81 @@ foreach ($s as $r) {
     }
 }
 
-function is_asn($name)
+class Radb
 {
-    return preg_match('#^AS\d+$#', $name);
-}
-
-function is_as_set($name)
-{
-    return preg_match('#^AS-[A-Z0-9\-]+$#', $name);
-}
-
-function query_as_set($as_set, &$ips=[])
-{
-    $assets = query('-K -T as-set ' . $as_set);
-
-    foreach ($assets['members'] as $asn) {
-        if (is_asn($asn)) {
-            query_asn($asn, $ips);
-        } else {
-            query_as_set($asn, $ips);
-        }
-    }
-}
-
-function query_asn($asn, &$ips=[])
-{
-    $r = query('-K -i origin ' . $asn);
-
-    if (isset($r['route'])) {
-        foreach ($r['route'] as $n) {
-            $ips['route'][$n] = 1;
-        }
+    static public function is_asn($name)
+    {
+        return preg_match('#^AS\d+$#', $name);
     }
 
-    if (isset($r['route6'])) {
-        foreach ($r['route6'] as $n) {
-            $ips['route6'][$n] = 1;
-        }
-    }
-}
-
-function query($cmd)
-{
-    $socket = stream_socket_client('tcp://whois.radb.net:43', $errno, $error, 3, STREAM_CLIENT_CONNECT);
-    fwrite($socket, $cmd . "\n");
-    $r = '';
-    $ret = [];
-    while (!feof($socket)) {
-        $rl = fgets($socket);
-        $r .= $rl;
-        if (!strpos($rl, ':')) {
-            if (trim($rl)) {
-                # stderr
-                debug_log("\e[31mError\e[0m: " . $cmd . ": " . $rl);
-            }
-            continue;
-        }
-        list($key, $val) = explode(':', $rl, 2);
-        $ret[$key][] = trim($val);
+    static public function is_as_set($name)
+    {
+        return preg_match('#^AS-[A-Z0-9\-]+$#', $name);
     }
 
-    fclose($socket);
+    static public function query_as_set($as_set, &$ips=[])
+    {
+        $assets = self::query('-K -T as-set ' . $as_set);
 
-    if (isset($ret['members'])) {
-        foreach ($ret['members'] as $k=>$v) {
-            if (strpos($v, ',')) {
-                unset($ret['members'][$k]);
-                $ret['members'] = array_merge($ret['members'], preg_split('#[,\s]#', $v, -1, PREG_SPLIT_NO_EMPTY));
+        foreach ($assets['members'] as $asn) {
+            if (self::is_asn($asn)) {
+                self::query_asn($asn, $ips);
+            } else {
+                self::query_as_set($asn, $ips);
             }
         }
     }
 
-    return $ret;
+    static public function query_asn($asn, &$ips=[])
+    {
+        $r = self::query('-K -i origin ' . $asn);
+
+        if (isset($r['route'])) {
+            foreach ($r['route'] as $n) {
+                $ips['route'][$n] = 1;
+            }
+        }
+
+        if (isset($r['route6'])) {
+            foreach ($r['route6'] as $n) {
+                $ips['route6'][$n] = 1;
+            }
+        }
+    }
+
+    static public function query($cmd)
+    {
+        $socket = stream_socket_client('tcp://whois.radb.net:43', $errno, $error, 3, STREAM_CLIENT_CONNECT);
+        fwrite($socket, $cmd . "\n");
+        $r = '';
+        $ret = [];
+        while (!feof($socket)) {
+            $rl = fgets($socket);
+            $r .= $rl;
+            if (!strpos($rl, ':')) {
+                if (trim($rl)) {
+                    # stderr
+                    debug_log("\e[31mError\e[0m: " . $cmd . ": " . $rl);
+                }
+                continue;
+            }
+            list($key, $val) = explode(':', $rl, 2);
+            $ret[$key][] = trim($val);
+        }
+
+        fclose($socket);
+
+        if (isset($ret['members'])) {
+            foreach ($ret['members'] as $k=>$v) {
+                if (strpos($v, ',')) {
+                    unset($ret['members'][$k]);
+                    $ret['members'] = array_merge($ret['members'], preg_split('#[,\s]#', $v, -1, PREG_SPLIT_NO_EMPTY));
+                }
+            }
+        }
+
+        return $ret;
+    }
 }
 
 function copyright()
@@ -149,11 +187,18 @@ function usage()
 
     echo <<<USAGE
 Usage:
-    php query-ips.php AS-SET-NAME|AS-NUMBER [-d]
+    php query-ips.php OPTIONS
+
+    OPTIONS:
+        -d          Turn on DEBUG
+        -s NAME     Set AS-SET-NAME
+        -d NUMBER   Set AS-NUMBER
 
 Example:
-    php query-ips.php AS-GOOGLE -d
-    php query-ips.php AS15169 -d
+    php query-ips.php -s AS-GOOGLE -d
+    php query-ips.php -n AS15169 -d
+    php query-ips.php -s AS-GOOGLE -s AS-TWITTER -d
+    php query-ips.php -s AS-TWITTER -n AS15169 -d
 
 
 USAGE;
