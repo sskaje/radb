@@ -14,6 +14,7 @@ if (!isset($argv[1])) {
 $enable_debug = false;
 $query_asns = [];
 $query_as_sets = [];
+$output_file = '';
 
 for ($i=1; isset($argv[$i]); $i++) {
     if ($argv[$i] == '-d') {
@@ -40,6 +41,17 @@ for ($i=1; isset($argv[$i]); $i++) {
             exit;
         } else {
             $query_asns[] = $argv[$i+1];
+        }
+        ++$i;
+    } else if ($argv[$i] == '-o') {
+        if (!isset($argv[$i+1])) {
+            echo "Error: Missing output file\n";
+            exit;
+        } else if (is_dir($argv[$i+1]) || !is_writable($argv[$i+1])) {
+            echo "Error: Output file not writable";
+            exit;
+        } else {
+            $output_file = $argv[$i+1];
         }
         ++$i;
     }
@@ -93,10 +105,9 @@ foreach ($s as $r) {
         list($subnet, $broadcast, $netmask) = IPCalculator::ipCidr2Subnet($ip['subnet'], $ip['cidr']);
 
         debug_log("\e[33mResult\e[0m: \e[37m{$subnet}\e[0m/\e[37m{$netmask}\e[0m BROADCAST:\e[37m{$broadcast}\e[0m\n");
-        echo $subnet . '/' . $ip['cidr'] . "\n";
+        output($subnet . '/' . $ip['cidr'] . "\n");
     }
 }
-
 class Radb
 {
     static public function is_asn($name)
@@ -109,33 +120,51 @@ class Radb
         return preg_match('#^AS-[A-Z0-9\-]+$#', $name);
     }
 
+    static protected $queried_set = array();
+
     static public function query_as_set($as_set, &$ips=[])
     {
+        if (isset(self::$queried_set[$as_set])) {
+            return;
+        }
+        self::$queried_set[$as_set] = 1;
+
         $assets = self::query('-K -T as-set ' . $as_set);
 
         if (isset($assets['members'])) {
             foreach ($assets['members'] as $asn) {
                 if (self::is_asn($asn)) {
+                    debug_log("query_asn {$asn}");
                     self::query_asn($asn, $ips);
                 } else {
+                    debug_log("found set {$asn}");
                     self::query_as_set($asn, $ips);
                 }
             }
         }
     }
 
+    static protected $queried_asn = array();
+
     static public function query_asn($asn, &$ips=[])
     {
+        if (isset(self::$queried_asn[$asn])) {
+            return;
+        }
+        self::$queried_asn[$asn] = 1;
+
         $r = self::query('-K -i origin ' . $asn);
 
         if (isset($r['route'])) {
             foreach ($r['route'] as $n) {
+                debug_log("found route: {$n}");
                 $ips['route'][$n] = 1;
             }
         }
 
         if (isset($r['route6'])) {
             foreach ($r['route6'] as $n) {
+                debug_log("found route6: {$n}");
                 $ips['route6'][$n] = 1;
             }
         }
@@ -217,6 +246,7 @@ Usage:
         -d          Turn on DEBUG
         -s NAME     Set AS-SET-NAME
         -d NUMBER   Set AS-NUMBER
+        -o FILE     Write output to file
 
 Example:
     php query-ips.php -s AS-GOOGLE -d
@@ -233,6 +263,16 @@ function debug_log($msg)
 {
     if (defined('RADB_DEBUG') && RADB_DEBUG) {
         fwrite(STDERR, rtrim($msg) . "\n");
+    }
+}
+
+function output($out)
+{
+    echo $out;
+
+    global $output_file;
+    if ($output_file) {
+        file_put_contents($output_file, $out, FILE_APPEND);
     }
 }
 

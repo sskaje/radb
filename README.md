@@ -10,9 +10,11 @@ Author: sskaje ([https://sskaje.me/](https://sskaje.me/))
 ```
 php query-ips.php OPTIONS 
 OPTIONS:
-    -d          Turn on DEBUG. Messages are sent to STDERR.
+    -d          Turn on DEBUG
     -s NAME     Set AS-SET-NAME
     -d NUMBER   Set AS-NUMBER
+    -o FILE     Write output to file
+
 ```
 
 
@@ -20,10 +22,11 @@ OPTIONS:
 # Examples
 
 ```
-php query-ips.php -s AS-GOOGLE -d 
-php query-ips.php -n AS15169   -d 
-php qury-ips.php -s AS-GOOGLE -s AS-TWITTER -d 
-php query-ips.php -s AS-TWITTER -n AS15169 -d 
+php query-ips.php -s AS-GOOGLE -d
+php query-ips.php -n AS15169   -d
+php query-ips.php -s AS-GOOGLE -s AS-TWITTER -d
+php query-ips.php -s AS-TWITTER -n AS15169 -d
+php query-ips.php -n AS15169   -d -o ips.txt
 
 ```
 
@@ -40,6 +43,7 @@ php query-ips.php -s AS-TWITTER -n AS15169 -d
 * AS-DIGITALOCEAN
 * AS-AOL
 * AS-CN
+* AS-YAHOO
 
 
 # EOF
