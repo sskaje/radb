@@ -47,8 +47,8 @@ for ($i=1; isset($argv[$i]); $i++) {
         if (!isset($argv[$i+1])) {
             echo "Error: Missing output file\n";
             exit;
-        } else if (is_dir($argv[$i+1]) || !is_writable($argv[$i+1])) {
-            echo "Error: Output file not writable";
+        } else if (is_dir($argv[$i+1]) || (is_file($argv[$i+1]) && !is_writable($argv[$i+1]))) {
+            echo "Error: Output file not writable\n";
             exit;
         } else {
             $output_file = $argv[$i+1];
@@ -84,25 +84,28 @@ if (empty($ips['route'])) {
 ksort($ips['route']);
 $route4 = array_keys($ips['route']);
 
-require(__DIR__ . '/ip_calc/ipcalc.class.php');
-require(__DIR__ . '/ip_calc/ip_merger.class.php');
+require(__DIR__ . '/ip_calc/autoload.php');
 
-$ipmerger = new IPMerger();
+use sskaje\ip\Calculator;
+use sskaje\ip\Merge;
+
+
+$merge = new Merge();
 
 foreach ($route4 as $r) {
-    $ipmerger->addBySubnet($r);
+    $merge->addIPCIDR($r);
     debug_log("\e[33mAdd Subnet\e[0m: \e[36m{$r}\e[0m\n");
 }
 
-$s = $ipmerger->getSubnets();
+$s = $merge->getBlocks();
 debug_log("\e[33mMerge & Format Results\e[0m\n");
 
-foreach ($s as $r) {
-    debug_log("\e[33mMerge\e[0m: \e[37m{$r[IPMerger::BEGIN]}\e[0m => \e[37m{$r[IPMerger::END]}\e[0m\n");
+foreach ($s as $from=>$to) {
+    debug_log("\e[33mMerge\e[0m: \e[37m{$from}\e[0m => \e[37m{$to}\e[0m\n");
 
-    $s = IPCalculator::getSubnetsFromRange($r[IPMerger::BEGIN], $r[IPMerger::END]);
+    $s = Calculator::Range2Blocks($from, $to);
     foreach ($s as $ip) {
-        list($subnet, $broadcast, $netmask) = IPCalculator::ipCidr2Subnet($ip['subnet'], $ip['cidr']);
+        list($subnet, $broadcast, $netmask, ) = Calculator::ipCidr2Subnet($ip['subnet'], $ip['cidr']);
 
         debug_log("\e[33mResult\e[0m: \e[37m{$subnet}\e[0m/\e[37m{$netmask}\e[0m BROADCAST:\e[37m{$broadcast}\e[0m\n");
         output($subnet . '/' . $ip['cidr'] . "\n");
