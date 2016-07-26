@@ -13,7 +13,8 @@ OPTIONS:
     -d          Turn on DEBUG
     -s NAME     Set AS-SET-NAME
     -d NUMBER   Set AS-NUMBER
-    -o FILE     Write output to file
+    -o FILE     Append output to file
+    -O FILE     Overwrite output to file
 
 ```
 
@@ -23,27 +24,38 @@ OPTIONS:
 
 ```
 php query-ips.php -s AS-GOOGLE -d
-php query-ips.php -n AS15169   -d
+php query-ips.php -n AS15169 -d
 php query-ips.php -s AS-GOOGLE -s AS-TWITTER -d
 php query-ips.php -s AS-TWITTER -n AS15169 -d
-php query-ips.php -n AS15169   -d -o ips.txt
-
+php query-ips.php -n AS15169 -d -o as15169.txt
+php query-ips.php -n AS15169 -d -O as15169.txt
 ```
 
 # Known AS-SET list
 
-* AS-HURRICANE
 * AS-GOOGLE
 * AS-TWITTER
-* AS-AMAZON
 * AS-FACEBOOK
+* AS-HURRICANE
+* AS-AMAZON
 * AS-MICROSOFT
 * AS-APPLE
 * AS-LINODE
 * AS-DIGITALOCEAN
 * AS-AOL
 * AS-CN
+* AS-CNC
 * AS-YAHOO
+* AS-CLOUDFLARE
+* AS-WIKIMEDIA
+* AS-EBAY
+* AS-CISCO
+* AS-BBC
+* AS-ROOT
+* AS-ICI
+* AS-YANDEX
+* AS-RUSSIA
+* AS-KDD
 
 
 # EOF

@@ -15,6 +15,8 @@ $enable_debug = false;
 $query_asns = [];
 $query_as_sets = [];
 $output_file = '';
+$overwrite = false;
+$overwrite_init = false;
 
 for ($i=1; isset($argv[$i]); $i++) {
     if ($argv[$i] == '-d') {
@@ -43,7 +45,7 @@ for ($i=1; isset($argv[$i]); $i++) {
             $query_asns[] = $argv[$i+1];
         }
         ++$i;
-    } else if ($argv[$i] == '-o') {
+    } else if ($argv[$i] == '-o' || $argv[$i] == '-O') {
         if (!isset($argv[$i+1])) {
             echo "Error: Missing output file\n";
             exit;
@@ -52,6 +54,10 @@ for ($i=1; isset($argv[$i]); $i++) {
             exit;
         } else {
             $output_file = $argv[$i+1];
+
+            if ($argv[$i] == '-O') {
+                $overwrite = true;
+            }
         }
         ++$i;
     }
@@ -180,7 +186,8 @@ class Radb
         $r = '';
         $ret = [];
         $last_key = '';
-        while (!feof($socket)) {
+        debug_log("\e[31mSend command:\e[0m {$cmd}");
+        while (is_resource($socket) && !feof($socket)) {
             $rl = fgets($socket);
             $r .= $rl;
             $rl = trim($rl);
@@ -249,13 +256,16 @@ Usage:
         -d          Turn on DEBUG
         -s NAME     Set AS-SET-NAME
         -d NUMBER   Set AS-NUMBER
-        -o FILE     Write output to file
+        -o FILE     Append output to file
+        -O FILE     Overwrite output to file
 
 Example:
     php query-ips.php -s AS-GOOGLE -d
     php query-ips.php -n AS15169 -d
     php query-ips.php -s AS-GOOGLE -s AS-TWITTER -d
     php query-ips.php -s AS-TWITTER -n AS15169 -d
+    php query-ips.php -n AS15169 -d -o as15169.txt
+    php query-ips.php -n AS15169 -d -O as15169.txt
 
 
 USAGE;
@@ -273,9 +283,17 @@ function output($out)
 {
     echo $out;
 
-    global $output_file;
+    global $output_file, $overwrite, $overwrite_init;
     if ($output_file) {
-        file_put_contents($output_file, $out, FILE_APPEND);
+        file_put_contents(
+            $output_file,
+            $out,
+            (!$overwrite || $overwrite && $overwrite_init) ? FILE_APPEND : 0
+        );
+
+        if (!$overwrite_init) {
+            $overwrite_init = true;
+        }
     }
 }
 
