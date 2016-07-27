@@ -121,18 +121,19 @@ class Radb
 {
     static public function is_asn($name)
     {
-        return preg_match('#^AS\d+$#', $name);
+        return preg_match('#^AS\d+$#i', $name);
     }
 
     static public function is_as_set($name)
     {
-        return preg_match('#^AS-[A-Z0-9\-]+$#', $name);
+        return preg_match('#^AS-[A-Z0-9\-]+$#i', $name);
     }
 
     static protected $queried_set = array();
 
     static public function query_as_set($as_set, &$ips=[])
     {
+        $as_set = strtoupper($as_set);
         if (isset(self::$queried_set[$as_set])) {
             return;
         }
@@ -157,6 +158,7 @@ class Radb
 
     static public function query_asn($asn, &$ips=[])
     {
+        $asn = strtoupper($asn);
         if (isset(self::$queried_asn[$asn])) {
             return;
         }
